@@ -13,21 +13,15 @@
     X(TK_LCBRACE, "{") \
     X(TK_RCBRACE, "}") \
     X(TK_COLON,   ":") \
-    X(TK_SEMI,    ";")
+    X(TK_SEMI,    ";") \
+    X(TK_ASSIGN,  "=") \
+    X(TK_COMMA,   ",")
 
 #define KEYWORD_LIST \
     X(TK_IF,    "if") \
     X(TK_ELSE,  "else") \
     X(TK_WHILE, "while") \
     X(TK_FOR,   "for") \
-    X(TK_I8,    "i8") \
-    X(TK_I16,   "i16") \
-    X(TK_I32,   "i32") \
-    X(TK_I64,   "i64") \
-    X(TK_U8,    "u8") \
-    X(TK_U16,   "u16") \
-    X(TK_U32,   "u32") \
-    X(TK_U64,   "u64")
 
 enum TokenType {
   #define X(name, str) name,
@@ -58,6 +52,7 @@ struct Lexer {
   enum LexerState state;
 };
 
-uint8_t        lexinit(struct Lexer* lexer);
-uint8_t        lexlex(struct Lexer* lexer, char* source);
-
+uint8_t         lexinit(struct Lexer* lexer);
+uint8_t         lexlex(struct Lexer* lexer, char* source);
+const char*     lextktostr(enum TokenType type);
+const char*     lextoktokeyword(struct Lexer* lexer, enum TokenType tok); 

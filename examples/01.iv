@@ -1,4 +1,8 @@
+
 main(): i32 {
+  {
   l: i32 = 9;
-  print(l);
+  e: i32 = 12;
+  print(l, e);
+  }
 }

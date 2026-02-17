@@ -16,8 +16,6 @@ static uint8_t        lexappend(struct Lexer* lexer, char c);
 static uint8_t        lexstartnum(struct Lexer* lexer, char c);
 static uint8_t        lexstartident(struct Lexer* lexer, char c);
 
-static const char*    tktostr(enum TokenType type);
-
 struct {
   const char *str;
   enum TokenType type;
@@ -29,6 +27,7 @@ struct {
 
 struct Token* lexemit(struct Lexer* lexer,enum TokenType type) {
   if(!lexer) return NULL;
+
   if(lexer->toks_n >=  lexer->toks_cap - 1) {
     lexer->toks_cap *= 2;
     lexer->toks = _realloc(lexer->toks, sizeof(*lexer->toks) * lexer->toks_cap);
@@ -43,6 +42,8 @@ struct Token* lexemit(struct Lexer* lexer,enum TokenType type) {
 }
 
 uint8_t lexdone(struct Lexer* lexer) {
+  if(!lexer) return 1;
+
   switch(lexer->state) {
     case LX_ON_IDENT: { 
       if(lexer->cur_ptr >= MAX_IDENT_LEN - 1) return 1;
@@ -54,23 +55,21 @@ uint8_t lexdone(struct Lexer* lexer) {
       lexer->state = LX_IDLE;
       struct Token* tk = lexemit(lexer, emit);
       if(!tk) {
-        fprintf(stderr, "ivar: failed to emit token '%s'.\n", tktostr(emit));
+        fprintf(stderr, "ivar: failed to emit token '%s'.\n", lextktostr(emit));
         return 1;
       }
 
-      printf("Emitted: %s: '%s'\n", tktostr(tk->type), tk->str_val); 
       break;
     }
     case LX_ON_NUM: {
       struct Token* tk = lexemit(lexer, TK_NUMBER);
       if(!tk) {
-        fprintf(stderr, "ivar: failed to emit token '%s'.\n", tktostr(TK_NUMBER));
+        fprintf(stderr, "ivar: failed to emit token '%s'.\n", lextktostr(TK_NUMBER));
         return 1;
       }
 
       lexer->state = LX_IDLE;
       lexer->cur_num = 0;
-      printf("Emitted: %s: %li\n", tktostr(tk->type), tk->i_val); 
 
       break;
     }
@@ -100,20 +99,10 @@ enum TokenType lexpuncttotk(char c) {
     case ')': return TK_RPAREN;
     case ';': return TK_SEMI;
     case ':': return TK_COLON;
+    case '=': return TK_ASSIGN;
+    case ',': return TK_COMMA;
     default:  return TK_NONE;
   }
-}
-
-enum TokenType lexkeywordtotok(struct Lexer* lexer, const char* keyword) {
-  enum TokenType type = TK_IDENT;
-
-  for (size_t i = 0; i < sizeof(keywords)/sizeof(keywords[0]); i++) {
-    if (strcmp(lexer->cur_str, keywords[i].str) == 0) {
-      type = keywords[i].type;
-      break;
-    }
-  }
-  return type;
 }
 
 uint8_t lexappend(struct Lexer* lexer, char c) {
@@ -150,15 +139,6 @@ uint8_t lexstartident(struct Lexer* lexer, char c) {
   return 0;
 }
 
-const char *tktostr(enum TokenType type) {
-  switch (type) {
-#define X(name, str) case name: return str;
-    TOKEN_LIST
-    KEYWORD_LIST
-    #undef X
-    default: return "UNKNOWN_TOKEN";
-  }
-}
 
 // ======= PUBLIC API ========
 
@@ -177,6 +157,8 @@ uint8_t lexinit(struct Lexer* lexer) {
   return 0;
 }
 uint8_t lexlex(struct Lexer* lexer, char* source) {
+  if(!lexer || !source) return 1;
+
   char* p = source;
   while(*p) {
     switch(lexer->state) {
@@ -212,4 +194,38 @@ uint8_t lexlex(struct Lexer* lexer, char* source) {
   }
 
   return 0;
+}
+
+const char* lextktostr(enum TokenType type) {
+  switch (type) {
+#define X(name, str) case name: return str;
+    TOKEN_LIST
+    KEYWORD_LIST
+    #undef X
+    default: return "UNKNOWN_TOKEN";
+  }
+}
+
+enum TokenType lexkeywordtotok(struct Lexer* lexer, const char* keyword) {
+  if(!lexer || !keyword) return TK_NONE;
+
+  enum TokenType type = TK_IDENT;
+
+  for (size_t i = 0; i < sizeof(keywords)/sizeof(keywords[0]); i++) {
+    if (strcmp(lexer->cur_str, keywords[i].str) == 0) {
+      type = keywords[i].type;
+      break;
+    }
+  }
+  return type;
+}
+
+const char* lextoktokeyword(struct Lexer* lexer, enum TokenType tok) {
+  if(!lexer) return NULL;
+
+  for (size_t i = 0; i < sizeof(keywords)/sizeof(keywords[0]); i++) {
+    if (keywords[i].type == tok)
+      return keywords[i].str;
+    }
+  return NULL;
 }
