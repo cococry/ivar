@@ -5,8 +5,8 @@ compiler for the ivar programming language
 ## Roadmap
 
 - [x] Implement lexer
-- [ ] Implement AST
-  - [ ] Parser
-  - [ ] AST node gen
+- [x] Implement AST
+  - [x] Parser
+  - [x] AST node gen
 - [ ] Implement IR
 - [ ] Generate ASM
