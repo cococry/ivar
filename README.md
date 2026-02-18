@@ -11,5 +11,5 @@ compiler for the ivar programming language
 - [x] Implement semantic analysis
 - [ ] Implement IR (TAC)
   - [x] IR Functions + Variables (Store + Load)
-  - [ ] IR conditionals 
+  - [x] IR conditionals 
 - [ ] Generate ASM
