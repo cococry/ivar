@@ -1,7 +1,7 @@
 #pragma once
 
 #include <stdint.h>
-#include <unistd.h>
+#include <stddef.h>
 
 #define MAX_IDENT_LEN 1024
 #define LEX_TOK_INIT 128 
@@ -62,3 +62,5 @@ uint8_t         lexinit(struct Lexer* lexer);
 uint8_t         lexlex(struct Lexer* lexer, char* source);
 const char*     lextktostr(enum TokenType type);
 const char*     lextoktokeyword(struct Lexer* lexer, enum TokenType tok); 
+
+int8_t          lexprintall(struct Lexer* lexer); 

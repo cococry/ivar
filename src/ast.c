@@ -34,18 +34,21 @@ static struct AstNode*  astemitfuncnode(char* name, char* type, struct AstNode* 
 static struct AstNode*  astemitvarnode(char* name, char* type, struct AstNode* val);
 static struct AstNode*  astemitnumbernode(int64_t number);
 static struct AstNode*  astemitidentnode(char* ident);
+static struct AstNode*  astemitifnode(struct AstNode* cond, struct AstNode* then, struct AstNode* elsenode);
+
 static int8_t           astaddchild(struct AstNode* parent, struct AstNode* child);
 struct AstNode*         astfinishcall(struct Parser* parser, char* name);
 
-struct AstNode* parserparsefactor(struct Parser* parser);
-struct AstNode* parserparseterm(struct Parser* parser);
-struct AstNode* parserparseexpr(struct Parser* parser);
+static struct AstNode* parserparsefactor(struct Parser* parser);
+static struct AstNode* parserparseterm(struct Parser* parser);
+static struct AstNode* parserparseexpr(struct Parser* parser);
 
-struct AstNode* parserfinishcall(struct Parser* parser, char* name);
-struct AstNode* parserparseident(struct Parser* parser);
-struct AstNode* parserparsestmt(struct Parser* parser);
-struct AstNode* parserparseblock(struct Parser* parser);
-struct AstNode* parserparsefunc(struct Parser* parser);
+static struct AstNode* parserfinishcall(struct Parser* parser, char* name);
+static struct AstNode* parserparseident(struct Parser* parser);
+static struct AstNode* parserparseif(struct Parser* parser);
+static struct AstNode* parserparsestmt(struct Parser* parser);
+static struct AstNode* parserparseblock(struct Parser* parser);
+static struct AstNode* parserparsefunc(struct Parser* parser);
 
 static struct Token* parserpeek(struct Parser* parser) {
   return &parser->toks[parser->cur];
@@ -131,6 +134,17 @@ struct AstNode* astemitidentnode(char* ident) {
   if(!n) return NULL;
 
   n->ident = ident; 
+  return n;
+}
+
+struct AstNode*
+astemitifnode(struct AstNode* cond, struct AstNode* then, struct AstNode* elsenode) {
+  struct AstNode* n = astemitnode(AST_IF);
+
+  n->ifstmt.cond = cond;
+  n->ifstmt.thenblock = then;
+  n->ifstmt.elseblock = elsenode;
+
   return n;
 }
 
@@ -255,15 +269,37 @@ struct AstNode* parserparseident(struct Parser* parser) {
   exit(1);
 }
 
+struct AstNode* parserparseif(struct Parser* parser) {
+  parserconsume(parser, TK_IF);
+  parserconsume(parser, TK_LPAREN);
+  struct AstNode* cond = parserparseexpr(parser);
+  parserconsume(parser, TK_RPAREN);
+
+  struct AstNode* then = parserparseblock(parser);
+
+  struct AstNode* elseblock = NULL;
+  if(parsermatch(parser, TK_ELSE)) {
+    if(parserhave(parser, TK_LCBRACE)) 
+      elseblock = parserparseblock(parser);
+    else 
+      elseblock = parserparsestmt(parser);
+  }
+
+  return astemitifnode(cond, then, elseblock);
+}
+
 struct AstNode* parserparsestmt(struct Parser* parser) {
   if(!parser) return NULL;
 
   if(parserhave(parser, TK_IDENT)) {
     return parserparseident(parser);
   }
-  if(parserhave(parser, TK_LCBRACE)) {
+  else if(parserhave(parser, TK_LCBRACE)) {
     return parserparseblock(parser);
-  } 
+  }
+  else if(parserhave(parser, TK_IF)) {
+    return parserparseif(parser);
+  }
 
   fprintf(stderr, "ivar: unexpected token.\n");
   exit(1);
@@ -397,6 +433,8 @@ uint8_t semanticanalyze(struct AstNode* node, struct Scope* scope) {
       exit(1);
     }
 
+    semanticanalyze(node->var_decl.val, scope); 
+
     scopeaddsymbol(node->var_decl.name, node->var_decl.type, 
                    SYM_VAR, scope);
   } 
@@ -427,6 +465,9 @@ uint8_t semanticanalyze(struct AstNode* node, struct Scope* scope) {
     if(!scopelookup(node->call.name, SYM_FUNC, scope, 0)) {
       fprintf(stderr, "ivar: call to undeclared function: '%s'.\n", node->ident);
       exit(1);
+    }
+    for(size_t i = 0; i < node->list.childs_n; i++ ){
+      semanticanalyze(node->list.childs[i], scope); 
     }
   }
 
@@ -464,7 +505,10 @@ void astprint(struct AstNode* node, int indent) {
     case AST_BLOCK:
     case AST_CALL:
     case AST_PROGRAM:
-      printf("Block/List: %s\n", node->type == AST_CALL ? node->call.name : (node->type == AST_FUNCTION ? node->function.name : "block/program"));
+      if(node->type == AST_CALL) {
+        printf("Call to %s\n", node->call.name);
+      } else printf("Block\n");
+
       for (size_t i = 0; i < node->list.childs_n; i++) {
         astprint(node->list.childs[i], indent + 1);
       }
@@ -476,6 +520,15 @@ void astprint(struct AstNode* node, int indent) {
       astprint(node->binop.left, indent + 1);
       astprint(node->binop.right, indent + 1);
       break;
+
+    case AST_IF: {
+      printf("If statement - If/Else:\n");
+
+      astprint(node->ifstmt.cond, indent + 1);
+      astprint(node->ifstmt.thenblock, indent + 1);
+      if(node->ifstmt.elseblock) astprint(node->ifstmt.elseblock, indent + 1);
+      break;
+    }
 
     case AST_NUMBER:
       printf("Number: %lld\n", (long long)node->number);

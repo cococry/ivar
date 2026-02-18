@@ -1,6 +1,6 @@
 #pragma once
 
-#include <unistd.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "lex.h"
@@ -13,7 +13,8 @@ enum AstNodeType {
   AST_CALL,
   AST_NUMBER,
   AST_BINOP,
-  AST_IDENT
+  AST_IDENT,
+  AST_IF,
 };
 
 struct AstNode {
@@ -47,6 +48,16 @@ struct AstNode {
     struct {
       char* name;
     } call;
+
+    struct {
+      struct AstNode* cond;
+      struct AstNode* thenblock;
+      struct AstNode* elseblock;
+    } ifstmt;
+    
+    struct {
+      struct AstNode* then;
+    } elsestmt;
 
     int64_t number;
     char* ident;

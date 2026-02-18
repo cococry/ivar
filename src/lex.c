@@ -16,7 +16,7 @@ static uint8_t        lexappend(struct Lexer* lexer, char c);
 static uint8_t        lexstartnum(struct Lexer* lexer, char c);
 static uint8_t        lexstartident(struct Lexer* lexer, char c);
 
-struct {
+static struct {
   const char *str;
   enum TokenType type;
 } keywords[] = {
@@ -232,4 +232,15 @@ const char* lextoktokeyword(struct Lexer* lexer, enum TokenType tok) {
       return keywords[i].str;
     }
   return NULL;
+}
+
+int8_t lexprintall(struct Lexer* lexer) {
+  if(!lexer) return 1;
+
+  for(size_t i = 0; i < lexer->toks_n; i++) {
+    printf("Token: %s (str_val: %s, i_val: %li)\n", lextktostr(lexer->toks[i].type),
+           lexer->toks[i].str_val, lexer->toks[i].i_val);
+  }
+
+  return 0;
 }
