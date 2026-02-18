@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <stdint.h>
 
+#include "lex.h"
 
 enum AstNodeType {
   AST_PROGRAM,
@@ -11,6 +12,7 @@ enum AstNodeType {
   AST_VAR_DECL,
   AST_CALL,
   AST_NUMBER,
+  AST_BINOP,
   AST_IDENT
 };
 
@@ -30,6 +32,12 @@ struct AstNode {
       char*           type;
       struct AstNode* body;
     } function;
+    
+    struct {
+      struct AstNode* left;
+      struct AstNode* right;
+      enum TokenType op;
+    } binop;
 
     struct {
       char*             name;
@@ -45,6 +53,13 @@ struct AstNode {
   };
 };
 
+struct Scope {
+  struct Symbol* syms;
+  size_t syms_cap;
+  size_t syms_n;
+  struct Scope* parent;
+};
+
 struct Parser {
   struct Token* toks;
   size_t        toks_n;
@@ -54,3 +69,7 @@ struct Parser {
 int8_t            parserinit(struct Parser* parser, struct Token* toks, size_t toks_n);
 
 struct AstNode*   parserbuildast(struct Parser* parser);
+
+uint8_t           semanticanalyze(struct AstNode* node, struct Scope* scope);
+
+void              astprint(struct AstNode* node, int indent);

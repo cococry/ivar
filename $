@@ -165,10 +165,6 @@ struct AstNode* parserparsefactor(struct Parser* parser) {
     parserconsume(parser, TK_NUMBER);
     return astemitnumbernode(tk->i_val);
   }
-  else if(tk->type == TK_IDENT) {
-    parserconsume(parser, TK_IDENT);
-    return astemitidentnode(tk->str_val);
-  }
   else if(tk->type == TK_LPAREN) {
     parserconsume(parser, TK_LPAREN); 
     struct AstNode* expr = parserparseexpr(parser); 
@@ -176,7 +172,7 @@ struct AstNode* parserparsefactor(struct Parser* parser) {
     return expr;
   }
 
-  fprintf(stderr, "ivar: unexpected token: '%s', expected number, identifier or '('\n", lextktostr(tk->type));
+  fprintf(stderr, "ivar: unexpected token: '%s', expected number or '('", lextktostr(tk->type));
 
   return NULL;
 }
@@ -202,15 +198,7 @@ struct AstNode* parserparseexpr(struct Parser* parser) {
 
   struct AstNode* expr = parserparseterm(parser);
   
-  while(parserhave(parser, TK_PLUS) || parserhave(parser, TK_MINUS)) {
-    struct Token* tk = parserpeek(parser);
-    if(tk->type == TK_PLUS) parserconsume(parser, TK_PLUS); 
-    else if (tk->type == TK_MINUS) parserconsume(parser, TK_MINUS);
-    
-    expr = astemitbinopnode(expr, tk->type, parserparseterm(parser)); 
-  }
-
-  return expr;
+  return NULL;
 }
 
 struct AstNode* parserfinishcall(struct Parser* parser, char* name) {
@@ -470,12 +458,6 @@ void astprint(struct AstNode* node, int indent) {
       }
       break;
 
-    case AST_BINOP:
-      printf("Binary operation: %s:\n", lextktostr(node->binop.op)); 
-      
-      astprint(node->binop.left, indent + 1);
-      astprint(node->binop.right, indent + 1);
-      break;
 
     case AST_NUMBER:
       printf("Number: %lld\n", (long long)node->number);

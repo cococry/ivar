@@ -1,3 +1,5 @@
+#pragma once
+
 #include <stdint.h>
 #include <unistd.h>
 
@@ -15,7 +17,11 @@
     X(TK_COLON,   ":") \
     X(TK_SEMI,    ";") \
     X(TK_ASSIGN,  "=") \
-    X(TK_COMMA,   ",")
+    X(TK_COMMA,   ",") \
+    X(TK_PLUS,   "+") \
+    X(TK_MINUS,   "-") \
+    X(TK_DIV,   "/") \
+    X(TK_MUL,   "*") \
 
 #define KEYWORD_LIST \
     X(TK_IF,    "if") \

@@ -101,6 +101,10 @@ enum TokenType lexpuncttotk(char c) {
     case ':': return TK_COLON;
     case '=': return TK_ASSIGN;
     case ',': return TK_COMMA;
+    case '+': return TK_PLUS;
+    case '-': return TK_MINUS;
+    case '*': return TK_MUL;
+    case '/': return TK_DIV;
     default:  return TK_NONE;
   }
 }

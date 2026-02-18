@@ -16,6 +16,16 @@ void* _malloc(size_t size) {
   return buf;
 }
 
+void* _calloc(size_t n, size_t size) {
+  void* buf = calloc(n, size);
+  if(!buf) {
+    fprintf(stderr, "ivar: failed to calloc %lu bytes.: %s\n", 
+            size, strerror(errno));
+    return NULL;
+  }
+  return buf;
+}
+
 void*  _realloc(void* ptr, size_t size) {
   void* buf = realloc(ptr, size);
   if(!buf) {
