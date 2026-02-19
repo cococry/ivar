@@ -35,7 +35,7 @@ struct IRInstruction {
   IRValue imm;
   char* name;
 
-  size_t label;
+  IRValue label;
 };
 
 struct IRFunction {
@@ -43,6 +43,8 @@ struct IRFunction {
   size_t insts_n, insts_cap;
 
   IRValue curreg, curlabel;
+
+  size_t idx;
 };
 
 struct IRProgram {
@@ -53,5 +55,7 @@ struct IRProgram {
 IRValue irgen(struct IRProgram* program, struct IRFunction* func, struct AstNode* node);
 
 int8_t irprintall(struct IRProgram* program);
+
+int8_t irprintinst(struct IRInstruction* inst); 
 
 int8_t irprograminit(struct IRProgram* program);

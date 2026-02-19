@@ -2,8 +2,10 @@ main(): i32 {
   l: i32 = 9;
   k: i32 = 11;
   if(k) {
-    j: i32 = 11;
+    var1: i32 = 11;
   } else if (l) {
-    v: i32 = 13;
+    var2: i32 = 13;
+  } else {
+    var3: i32 = 13;
   }
 }

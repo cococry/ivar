@@ -70,6 +70,8 @@ int8_t irfuncadd(struct IRProgram* program, struct IRFunction* func) {
     program->funcs = _realloc(program->funcs, program->funcs_cap * sizeof(*program->funcs));
     assert(program->funcs);
   }
+
+  func->idx = program->funcs_n;
   program->funcs[program->funcs_n++] = func;
 
   return 0;
@@ -229,31 +231,38 @@ int8_t irprintall(struct IRProgram* program) {
     printf("====== Function %i =======\n", i);
     for(uint32_t j = 0; j < program->funcs[i]->insts_n; j++) {
       struct IRInstruction* inst = &program->funcs[i]->insts[j];
-      switch(inst->type) {
-        case IR_CONST: printf("Instruction: %s: dst: v%li: %li\n", irtypetostr(inst->type), inst->dst, inst->imm); break;
-        case IR_LOAD: printf("Instruction: %s: dst: v%li: %s\n", irtypetostr(inst->type), inst->dst, inst->name); break;
-        case IR_STORE: printf("Instruction: %s: name: %s in v%li\n", irtypetostr(inst->type), 
-                              inst->name,
-                              inst->op1
-                              ); break;
-        case IR_ADD: 
-        case IR_DIV: 
-        case IR_MUL: 
-        case IR_SUB: 
-          printf("Instruction: %s: dst: v%li, op1: v%li, op2: v%li\n", irtypetostr(inst->type), 
-                 inst->dst, inst->op1, inst->op2); break;
-        case IR_JUMP_IF_FALSE: 
-          printf("Instruction: %s: dst: v%li, label: l%li\n", irtypetostr(inst->type), 
-                 inst->op1, inst->label); break;
-        case IR_JUMP: 
-          printf("Instruction: %s: label: l%li\n", irtypetostr(inst->type), 
-                 inst->label); break;
-        case IR_LABEL: 
-          printf("Instruction: %s: label: l%li\n", irtypetostr(inst->type), 
-                 inst->label); break;
-      }
+      irprintinst(inst); 
     }
     printf("=========================\n");
+  }
+
+  return 0;
+}
+
+int8_t irprintinst(struct IRInstruction* inst) {
+  if(!inst) return 1;
+  switch(inst->type) {
+    case IR_CONST: printf("Instruction: %s: dst: v%li: %li\n", irtypetostr(inst->type), inst->dst, inst->imm); break;
+    case IR_LOAD: printf("Instruction: %s: dst: v%li: %s\n", irtypetostr(inst->type), inst->dst, inst->name); break;
+    case IR_STORE: printf("Instruction: %s: name: %s in v%li\n", irtypetostr(inst->type), 
+                          inst->name,
+                          inst->op1
+                          ); break;
+    case IR_ADD: 
+    case IR_DIV: 
+    case IR_MUL: 
+    case IR_SUB: 
+      printf("Instruction: %s: dst: v%li, op1: v%li, op2: v%li\n", irtypetostr(inst->type), 
+             inst->dst, inst->op1, inst->op2); break;
+    case IR_JUMP_IF_FALSE: 
+      printf("Instruction: %s: dst: v%li, label: l%li\n", irtypetostr(inst->type), 
+             inst->op1, inst->label); break;
+    case IR_JUMP: 
+      printf("Instruction: %s: label: l%li\n", irtypetostr(inst->type), 
+             inst->label); break;
+    case IR_LABEL: 
+      printf("Instruction: %s: label: l%li\n", irtypetostr(inst->type), 
+             inst->label); break;
   }
 
   return 0;
