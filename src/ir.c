@@ -150,6 +150,20 @@ IRValue irgenvardecl(struct IRProgram* program, struct IRFunction* func, struct 
   return value;  // optional, usually ignored
 }
 
+IRValue irgenassign(struct IRProgram* program, struct IRFunction* func, struct AstNode* node) {
+  assert(program && node && func); 
+
+  IRValue value = irgen(program, func, node->assign.val);
+
+  iremit(func, (struct IRInstruction){
+    .type = IR_ASSIGN,
+    .name = node->assign.name,
+    .op1  = value
+  });
+
+  return value;  // optional, usually ignored
+}
+
 IRValue irgenident(struct IRProgram* program, struct IRFunction* func, struct AstNode* node) {
   assert(node && func); 
 
@@ -213,12 +227,13 @@ IRValue irgen(struct IRProgram* program, struct IRFunction* func, struct AstNode
         irgen(program, func, node->list.childs[i]); 
       }
       break;
-    case AST_FUNCTION:  return irgenfunc(program, func, node);
-    case AST_BINOP:     return irgenbinop(program, func, node);
-    case AST_NUMBER:    return irgenconst(program, func, node);
-    case AST_VAR_DECL:  return irgenvardecl(program, func, node);
-    case AST_IDENT:     return irgenident(program, func, node);
-    case AST_IF:        return irgenif(program, func, node);
+    case AST_FUNCTION:    return irgenfunc(program, func, node);
+    case AST_BINOP:       return irgenbinop(program, func, node);
+    case AST_NUMBER:      return irgenconst(program, func, node);
+    case AST_VAR_DECL:    return irgenvardecl(program, func, node);
+    case AST_ASSIGNMENT:  return irgenassign(program, func, node);
+    case AST_IDENT:       return irgenident(program, func, node);
+    case AST_IF:          return irgenif(program, func, node);
   }
   
   return 0;
@@ -263,6 +278,9 @@ int8_t irprintinst(struct IRInstruction* inst) {
     case IR_LABEL: 
       printf("Instruction: %s: label: l%li\n", irtypetostr(inst->type), 
              inst->label); break;
+    case IR_ASSIGN: 
+      printf("Instruction: %s: %s to v%li\n", irtypetostr(inst->type), 
+             inst->name, inst->op1); break;
   }
 
   return 0;

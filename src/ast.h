@@ -10,6 +10,7 @@ enum AstNodeType {
   AST_BLOCK,
   AST_FUNCTION,
   AST_VAR_DECL,
+  AST_ASSIGNMENT,
   AST_CALL,
   AST_NUMBER,
   AST_BINOP,
@@ -48,6 +49,11 @@ struct AstNode {
     struct {
       char* name;
     } call;
+
+    struct {
+      char*             name;
+      struct AstNode*   val;
+    } assign;
 
     struct {
       struct AstNode* cond;

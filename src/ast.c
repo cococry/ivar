@@ -32,6 +32,7 @@ static uint8_t          parsermatch(struct Parser* parser, enum TokenType type);
 static struct AstNode*  astemitnode(enum AstNodeType type);
 static struct AstNode*  astemitfuncnode(char* name, char* type, struct AstNode* body);
 static struct AstNode*  astemitvarnode(char* name, char* type, struct AstNode* val);
+struct AstNode*         astemitassignnode(char* name, struct AstNode* val);
 static struct AstNode*  astemitnumbernode(int64_t number);
 static struct AstNode*  astemitidentnode(char* ident);
 static struct AstNode*  astemitifnode(struct AstNode* cond, struct AstNode* then, struct AstNode* elsenode);
@@ -118,6 +119,15 @@ struct AstNode* astemitvarnode(char* name, char* type, struct AstNode* val) {
   n->var_decl.name = name; 
   n->var_decl.type = type;
   n->var_decl.val = val;
+  return n;
+}
+
+struct AstNode* astemitassignnode(char* name, struct AstNode* val) {
+  struct AstNode* n = astemitnode(AST_ASSIGNMENT);
+  if(!n) return NULL;
+
+  n->assign.name = name; 
+  n->assign.val = val;
   return n;
 }
 
@@ -259,11 +269,16 @@ struct AstNode* parserparseident(struct Parser* parser) {
     return astemitvarnode(name->str_val, type->str_val, val);
   }
 
-  if(parsermatch(parser, TK_LPAREN)) {
+  else if(parsermatch(parser, TK_LPAREN)) {
     struct AstNode* call = parserfinishcall(parser, name->str_val);
     parserconsume(parser, TK_SEMI);
     return call;
   } 
+  else if(parsermatch(parser, TK_ASSIGN)) {
+    struct AstNode* val = parserparseexpr(parser);
+    parserconsume(parser, TK_SEMI); 
+    return astemitassignnode(name->str_val, val);
+  }
 
   fprintf(stderr, "ivar: unexpected token after identifier.\n");
   exit(1);
@@ -527,6 +542,13 @@ void astprint(struct AstNode* node, int indent) {
       astprint(node->ifstmt.cond, indent + 1);
       astprint(node->ifstmt.thenblock, indent + 1);
       if(node->ifstmt.elseblock) astprint(node->ifstmt.elseblock, indent + 1);
+      break;
+    }
+    case AST_ASSIGNMENT: {
+      printf("Assignment: %s\n",
+             node->assign.name);
+
+      astprint(node->assign.val, indent + 1);
       break;
     }
 

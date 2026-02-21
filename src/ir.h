@@ -18,6 +18,7 @@
   X(IR_ADD, "IR_ADD") \
   X(IR_JUMP_IF_FALSE, "IR_JUMP_IF_FALSE") \
   X(IR_JUMP, "IR_JUMP") \
+  X(IR_ASSIGN, "IR_ASSIGN") \
   X(IR_LABEL, "IR_LABEL") \
 
 enum IRType {

@@ -11,6 +11,9 @@
 #include <string.h>
 #include <sys/types.h>
 
+#define STB_DS_IMPLEMENTATION 
+#include "../vendor/stb_ds.h"
+
 #define DIV_UP(x, y) (((x) + (y) - 1) / (y))
 
 struct SSA {
@@ -21,6 +24,15 @@ struct SSA {
   size_t words_n;
 
   struct BasicBlock** idoms;
+};
+
+struct SSAVar {
+  uint64_t id;
+};
+
+struct DefsiteEntry {
+  char* key;
+  struct BasicBlock* value; 
 };
 
 static int8_t ssaallocatedominatorwords(const size_t blocks_n, uint64_t*** o_dominators, size_t* words_n);
@@ -166,14 +178,37 @@ int8_t ssadominatorsof(
   return 0;
 }
 
-void ssaprintdominators(struct SSA* ssa) {
+void ssaprintdominators(struct SSA* ssa, struct IRFunction* func) {
   assert(ssa);
   printf("========== Dominators ==========\n");
 
   for (size_t b = 0; b < ssa->blocks_n; b++) {
+    const struct BasicBlock* block = &ssa->blocks[b];
+    printf("Block %zu\n", block->id);
+    printf("  ");
+    irprintinst(&func->insts[block->begin > 0 ? block->begin - 1 : block->begin]);
+    
+    printf("  Predecessors: ");
+    if (block->predecessors_n == 0) {
+      printf("(none)");
+    } else {
+      for (size_t j = 0; j < block->predecessors_n; j++) {
+        printf("%zu ", block->predecessors[j]->id);
+      }
+    }
+    printf("\n");
 
-    printf("Block %li dominated by: ", b);
+    printf("  Successors:   ");
+    if (block->successors_n == 0) {
+      printf("(none)");
+    } else {
+      for (size_t j = 0; j < block->successors_n; j++) {
+        printf("%zu ", block->successors[j]->id);
+      }
+    }
+    printf("\n");
 
+    printf("  Dominators: ");
     for (size_t block = 0; block < ssa->blocks_n; block++) {
 
       size_t word = block / 64;
@@ -183,9 +218,26 @@ void ssaprintdominators(struct SSA* ssa) {
         printf("%li ", block);
       }
     }
+    printf("\n");
 
+    
     const struct BasicBlock* idom = ssa->idoms[ssa->blocks[b].id]; 
-    printf("Immidiate dominators: %li\n", idom ? idom->id : -1UL);
+    printf("  Immidiate dominator: %li\n", idom ? idom->id : -1UL);
+   
+    printf("  Dominance frontiers: ");
+
+    for (size_t df = 0; df < ssa->blocks[b].dfs_n; df++) {
+        printf("%li ", ssa->blocks[b].dfs[df]->id);
+    }
+
+    if(ssa->blocks[b].dfs_n == 0) {
+      printf("(none)");
+    }
+    printf("\n");
+
+    printf("--------------------------\n");
+
+
 
     printf("\n");
   }
@@ -199,16 +251,7 @@ void ssaprintdfs(struct SSA* ssa) {
 
   for (size_t b = 0; b < ssa->blocks_n; b++) {
 
-    printf("Block %li dominance frontiers: ", b);
-
-    for (size_t df = 0; df < ssa->blocks[b].dfs_n; df++) {
-        printf("%li ", ssa->blocks[b].dfs[df]->id);
-    }
-
-    if(ssa->blocks[b].dfs_n == 0) {
-      printf("(none)");
-    }
-    printf("\n");
+ 
   }
 
   printf("================================\n");
@@ -293,6 +336,35 @@ int8_t ssagetdominancefrontiers(struct SSA* ssa) {
   return 0;
 }
 
+int8_t ssainsertphinodes(struct SSA* ssa, struct IRFunction* func) {
+  size_t defsites_n = 0;
+ 
+  struct DefsiteEntry* defsites = NULL;
+  for(size_t i = 0; i < ssa->blocks_n; i++) {
+    for(size_t j = ssa->blocks[i].begin; j < ssa->blocks[i].end; j++) {
+      struct IRInstruction inst = func->insts[j];
+      if(inst.type == IR_ASSIGN) {
+        struct DefsiteEntry* entry = hmgetp_null(defsites, inst.name);
+        if (!entry) {
+          struct BasicBlock* new = NULL; 
+          hmput(defsites, inst.name, new);
+          entry = hmgetp(defsites, inst.name);
+        }
+        arrput(entry->value, ssa->blocks[i]);
+      }
+    }
+  }
+
+  for(size_t i = 0; i < hmlen(defsites); i++) {
+    printf("Defsites of var '%s':\n", defsites[i].key);
+    for(size_t j = 0; j < arrlen(defsites[i].value); j++) {
+      printf("Block %li\n", defsites[i].value[j].id);
+    }
+  }
+
+  return 0;
+}
+
 int main(int argc, char** argv) {
   if(argc < 2) {
     fprintf(stderr, "ivar: no filepath specified.\n");
@@ -353,9 +425,9 @@ int main(int argc, char** argv) {
     ssainit(&ssa, blocks, blocks_n);
     ssagetdominancefrontiers(&ssa);
 
-    ssaprintdominators(&ssa); 
+    ssaprintdominators(&ssa, func); 
 
-    ssaprintdfs(&ssa); 
+    ssainsertphinodes(&ssa, func);
     
     printf("=========================\n"); 
   }
