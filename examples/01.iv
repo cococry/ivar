@@ -1,20 +1,11 @@
-print(): i32 {
-  n: i32 = 69;
-  if(9 + 3) {
-    var1: i32 = 12;
-  } else {
-    var2: i32 = 12;
-  }
-}
 
 main(): i32 {
   l: i32 = 9;
   k: i32 = 11;
   if(k) {
     var1: i32 = 11;
-  } else if (l) {
+  } 
+  if (l) {
     var2: i32 = 13;
-  } else {
-    var3: i32 = 13;
   }
 }

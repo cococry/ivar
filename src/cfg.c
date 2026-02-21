@@ -13,13 +13,16 @@ int8_t cfginitblock(struct BasicBlock* block) {
   memset(block, 0, sizeof(*block));
 
   block->predecessors_cap = INIT_EDGE_CAP;  
-  block->successors_cap = INIT_EDGE_CAP;
-  block->label = -1;
+  block->successors_cap   = INIT_EDGE_CAP;
+  block->dfs_cap          = INIT_EDGE_CAP;
+  block->label            = -1;
 
   block->successors = _malloc(sizeof(*block->successors) * block->successors_cap);
   assert(block->successors);
   block->predecessors = _malloc(sizeof(*block->predecessors) * block->predecessors_cap);
   assert(block->predecessors);
+  block->dfs = _malloc(sizeof(*block->dfs) * block->dfs_cap);
+  assert(block->dfs);
 
   assert(block->successors);
 
@@ -234,4 +237,20 @@ void cfgprint(const struct BasicBlock *blocks, const size_t blocks_n) {
   }
 
   printf("==========================\n");
+}
+
+int8_t 
+cfgpushdf(struct BasicBlock* a, struct BasicBlock *b) {
+  assert(a && b);
+
+  if(a->dfs_cap == 0) return 1;
+
+  if(a->dfs_n >= a->dfs_cap) {
+    a->dfs_cap *= 2;
+    a->dfs = _realloc(a->dfs, sizeof(*a->dfs) * a->dfs_cap);
+    assert(a->dfs);
+  }
+  a->dfs[a->dfs_n++] = b;
+
+  return 0;
 }
