@@ -2,6 +2,9 @@
 #include "ast.h"
 #include "lex.h"
 #include "base.h"
+#include "cfg.h"
+
+#include "../vendor/stb_ds.h"
 
 #include <stdio.h>
 #include <assert.h>
@@ -259,9 +262,9 @@ int8_t irprintinst(struct IRInstruction* inst) {
   if(!inst) return 1;
   switch(inst->type) {
     case IR_CONST: printf("Instruction: %s: dst: v%li: %li\n", irtypetostr(inst->type), inst->dst, inst->imm); break;
-    case IR_LOAD: printf("Instruction: %s: dst: v%li: %s\n", irtypetostr(inst->type), inst->dst, inst->name); break;
+    case IR_LOAD: printf("Instruction: %s: dst: v%li: %s\n", irtypetostr(inst->type), inst->dst, inst->nameversioned); break;
     case IR_STORE: printf("Instruction: %s: name: %s in v%li\n", irtypetostr(inst->type), 
-                          inst->name,
+                          inst->nameversioned,
                           inst->op1
                           ); break;
     case IR_ADD: 
@@ -281,10 +284,17 @@ int8_t irprintinst(struct IRInstruction* inst) {
              inst->label); break;
     case IR_ASSIGN: 
       printf("Instruction: %s: %s to v%li\n", irtypetostr(inst->type), 
-             inst->name, inst->op1); break;
-    case IR_PHI: 
-      printf("Instruction: %s: Result: %s\n", irtypetostr(inst->type), 
-             inst->phi.result); break;
+             inst->nameversioned, inst->op1); break;
+    case IR_PHI: { 
+      printf("Instruction: %s:( %s = ", irtypetostr(inst->type), 
+             inst->phi.resultversioned); 
+      for(size_t i = 0; i < hmlen(inst->phi.args); i++) {
+        struct BasicBlock* block = inst->phi.args[i].key;
+        printf("B%li ? %s ", block->id, inst->phi.args[i].value);
+      }
+      printf(")\n");
+      break;
+    }
   }
 
   return 0;

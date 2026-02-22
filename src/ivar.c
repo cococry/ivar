@@ -472,13 +472,13 @@ struct VarstackMap {
   struct Varstack* value;
 };
 
-char* ssavarstacknewver(struct Varstack* stack, const char* var) {
+char* ssavarstacknewver(struct Varstack** stack, const char* var) {
   const size_t maxdigits = 32;
   size_t n = strlen(var) + 1 + maxdigits;
   char* buf = _malloc(n);
   assert(buf);
 
-  snprintf(buf, n, "%s%li", var, stack->counter++);
+  snprintf(buf, n, "%s%li", var, (*stack)->counter++);
 
   return buf;
 };
@@ -486,12 +486,12 @@ char* ssavarstacknewver(struct Varstack* stack, const char* var) {
 #define arrtop(arr) (arr)[arrlen((arr)) > 0 ? arrlen((arr)) - 1 : arrlen(arr)]
 
 struct Varstack* getstack(struct VarstackMap** map, char* var) {
-  struct Varstack* stack = hmget(*map, var);
+  struct Varstack* stack = shget(*map, var);
   if(!stack) {
     stack = _calloc(1, sizeof(*stack));
     assert(stack);
-    hmput(*map, var, stack);
-  }
+    shput(*map, var, stack);
+  } 
   return stack;
 }
 
@@ -506,17 +506,15 @@ int8_t ssarenameblock(struct SSA* ssa, struct BasicBlock* block, struct IRFuncti
   for(size_t i = block->begin; i < block->end; i++) {
     struct IRInstruction* inst = &func->insts[i]; 
     if(inst->type == IR_PHI) {
-      inst->phi.original_name = strdup(inst->phi.result);
-
       char* var = inst->phi.result;  
 
       struct Varstack* stack = getstack(map, var);
-      char* newver = ssavarstacknewver(stack, var);
+      char* newver = ssavarstacknewver(&stack, var);
 
       arrput(stack->names, newver);
-      arrput(definedhere, var);
+      arrput(definedhere, var); 
 
-      inst->phi.result = newver;
+      inst->phi.resultversioned = newver;
     }
   }
   for(size_t i = block->begin; i < block->end; i++) {
@@ -524,19 +522,19 @@ int8_t ssarenameblock(struct SSA* ssa, struct BasicBlock* block, struct IRFuncti
     if(inst->type == IR_LOAD) {
       char* var = inst->name;
       struct Varstack* stack = getstack(map, var);
-      inst->name = arrtop(stack->names);
-      printf("Got here for block %li: Name %s\n", block->id, var);
+      if(stack->names)
+        inst->nameversioned = arrtop(stack->names);
     }
     else if(inst->type == IR_ASSIGN || inst->type == IR_STORE) {
       char* var = inst->name;
 
       struct Varstack* stack = getstack(map, var);
-      char* newver = ssavarstacknewver(stack, var);
+      char* newver = ssavarstacknewver(&stack, var);
 
       arrput(stack->names, newver);
-      arrput(definedhere, var);
+      arrput(definedhere, var); 
 
-      inst->name = newver;
+      inst->nameversioned = newver;
     }
   }
 
@@ -545,10 +543,12 @@ int8_t ssarenameblock(struct SSA* ssa, struct BasicBlock* block, struct IRFuncti
     for(size_t j = s->begin; j < s->end; j++) {
     struct IRInstruction* inst = &func->insts[j]; 
       if(inst->type == IR_PHI) {
-        struct Varstack* origstack = hmget(*map, inst->phi.original_name);
-        char* namefromblock = arrtop(origstack->names);
+        struct Varstack* origstack = getstack(map, inst->phi.result);
+        if(origstack->names) {
+          char* namefromblock = arrtop(origstack->names);
 
-        hmput(inst->phi.args, block, namefromblock);
+          hmput(inst->phi.args, block, namefromblock);
+        }
       }
     }
   }
@@ -558,7 +558,8 @@ int8_t ssarenameblock(struct SSA* ssa, struct BasicBlock* block, struct IRFuncti
   }
 
   for(size_t i = 0; i < arrlen(definedhere); i++) {
-    arrpop(getstack(map, definedhere[i])->names);
+    struct Varstack* stack = shget(*map, definedhere[i]);
+    arrpop(stack->names);
   } 
   
   arrfree(definedhere);

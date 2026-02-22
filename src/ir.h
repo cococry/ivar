@@ -40,10 +40,10 @@ struct IRInstruction {
 
   IRValue op1, op2, dst; 
   IRValue imm;
-  char* name;
+  char* name, *nameversioned;
 
   struct {
-    char* result, *original_name; 
+    char* result, *resultversioned; 
 
     struct IRPhiArgsMap* args;
   } phi;
