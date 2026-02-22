@@ -30,6 +30,11 @@ enum IRType {
 
 typedef int64_t IRValue;
 
+struct IRPhiArgsMap {
+  void* key; // struct BasicBlock*
+  char* value;
+};
+
 struct IRInstruction {
   enum IRType type;
 
@@ -38,11 +43,9 @@ struct IRInstruction {
   char* name;
 
   struct {
-    char* result; 
-    char** args;
-    int args_n;
+    char* result, *original_name; 
 
-    struct BasicBlock** phi_preds; 
+    struct IRPhiArgsMap* args;
   } phi;
 
   IRValue label;

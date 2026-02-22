@@ -19,6 +19,8 @@ struct BasicBlock {
   size_t func_idx;
 
   size_t begin, end;
+
+  struct BasicBlock** domchilds;
 };
 
 

@@ -30,10 +30,21 @@ struct SSAVar {
   uint64_t id;
 };
 
+struct BlockEntryById {
+  size_t key; 
+  int value; // unused
+};
+
+typedef struct {
+    void* key;
+    int value;
+} BlockSet;
+
 struct DefsiteEntry {
   char* key;
-  struct BasicBlock* value; 
+  BlockSet* value; 
 };
+
 
 static int8_t ssaallocatedominatorwords(const size_t blocks_n, uint64_t*** o_dominators, size_t* words_n);
 
@@ -348,85 +359,209 @@ int8_t ssagetdfs(struct SSA* ssa, struct BasicBlock* block, struct BasicBlock***
   return 0;
 }
 
-int8_t ssainsertphinodes(struct SSA* ssa, struct IRFunction* func) {
-  size_t defsites_n = 0;
- 
-  struct DefsiteEntry* defsites = NULL;
+int8_t ssagetvardefsites(struct SSA* ssa, struct IRFunction* func, struct DefsiteEntry** o_defsites) {
+  assert(ssa && func);
+
   for(size_t i = 0; i < ssa->blocks_n; i++) {
+    // iterate every block and find assign instructions
     for(size_t j = ssa->blocks[i].begin; j < ssa->blocks[i].end; j++) {
       struct IRInstruction inst = func->insts[j];
       if(inst.type == IR_ASSIGN) {
-        struct DefsiteEntry* entry = hmgetp_null(defsites, inst.name);
+        struct DefsiteEntry* entry = hmgetp_null(*o_defsites, inst.name);
         if (!entry) {
-          struct BasicBlock* new = NULL; 
-          hmput(defsites, inst.name, new);
-          entry = hmgetp(defsites, inst.name);
+          // NULL to init the array 
+          BlockSet* new = NULL; 
+          hmput(*o_defsites, inst.name, new);
+          entry = hmgetp(*o_defsites, inst.name);
         }
-        arrput(entry->value, ssa->blocks[i]);
+        hmput(entry->value, &ssa->blocks[i], 1);
       }
     }
   }
 
+  return 0;
+}
+
+int8_t ssainsertphinode(struct SSA* ssa, const char* result, struct BasicBlock* df, struct IRFunction* func) {
+  assert(ssa && result && df && func);
+
+  struct IRInstruction inst = {0};
+  inst.type = IR_PHI;
+  inst.phi.result = strdup(result);
+  assert(inst.phi.result);
+  inst.phi.args = NULL;
+
+  if(irinstinsertat(func, inst, df->begin) != 0) return 1;
+
+  // shift the window of all other blocks after the insert
+  for (size_t i = 0; i < ssa->blocks_n; i++) {
+    if (ssa->blocks[i].begin > df->begin)
+      ssa->blocks[i].begin++;
+
+    if (ssa->blocks[i].end > df->begin)
+      ssa->blocks[i].end++;
+  }
+
+  return 0;
+}
+
+
+int8_t ssainsertphinodes(struct SSA* ssa, struct IRFunction* func) {
+  struct DefsiteEntry* defsites = NULL;
+  ssagetvardefsites(ssa, func, &defsites);
+  if(!defsites) return 0;
+
   for(size_t i = 0; i < hmlen(defsites); i++) {
+    // initialize worklist 
     struct BasicBlock** worklist = NULL;
-    for (size_t m = 0; m < arrlen(defsites[i].value); m++) {
-      arrput(worklist, &defsites[i].value[m]);
+    for (size_t b = 0; b < hmlen(defsites[i].value); b++) {
+      arrput(worklist, defsites[i].value[b].key); 
     }
-    struct BasicBlock** phisinserted = NULL;
+
+    // insert phi nodes to all dominance frontiers of the blocks 
+    // that define the variable we currently iterate.
+    uint8_t* phisinserted = calloc(ssa->blocks_n, 1);
     while(arrlen(worklist) > 0) {
       struct BasicBlock* b = arrpop(worklist); 
 
+      // for each dominance frontier .. insert phi node at the top 
+      // if a phi node does not exist yet.
       for(size_t j = 0; j < b->dfs_n; j++) {
         struct BasicBlock* df = b->dfs[j];
-        uint8_t has_alrady = 0;
-        for(size_t k = 0; k < arrlen(phisinserted); k++) {
-          if(phisinserted[k]->id == df->id) {
-            has_alrady = 1;
-            break;
-          }
-        }
-        if(!has_alrady) {
-          struct IRInstruction inst = {0};
-          inst.type = IR_PHI;
+        if(!phisinserted[df->id]) {
+          phisinserted[df->id] = 1;
 
-          inst.phi.result = strdup(defsites[i].key);
-          assert(inst.phi.result);
+          ssainsertphinode(ssa, defsites[i].key, df, func);
 
-          inst.phi.args_n = df->predecessors_n;
-
-          inst.phi.args = _calloc(inst.phi.args_n, sizeof(*inst.phi.args)); 
-          assert(inst.phi.args);
-
-          inst.phi.phi_preds = df->predecessors; 
-
-          irinstinsertat(func, inst, df->begin);
-          for (size_t i = 0; i < ssa->blocks_n; i++) {
-            if (ssa->blocks[i].begin > df->begin)
-              ssa->blocks[i].begin++;
-
-            if (ssa->blocks[i].end > df->begin)
-              ssa->blocks[i].end++;
-          }
-          
-          arrput(phisinserted, df);
-    
-          struct BasicBlock* defsofv = defsites[i].value;
-
-          uint8_t has_def = 0;
-          for(size_t l = 0; l < arrlen(defsofv); l++) {
-            if(defsofv[l].id == df->id) {
-              has_def = 1;
-              break;
-            }
-          }
-          if(!has_def) {
+          if(!hmget(defsites[i].value, df)) {
             arrput(worklist, df);
           }
         }
       }
     }
+
+    free(phisinserted);
+    arrfree(worklist);
   }
 
+  return 0;
+}
+
+int8_t ssabuilddomtree(struct SSA* ssa) {
+  assert(ssa);
+
+  for(size_t i = 0; i < ssa->blocks_n; i++) {
+    struct BasicBlock* b = &ssa->blocks[i];
+      struct BasicBlock* parent = ssa->idoms[b->id];
+    if(parent) {
+      arrput(parent->domchilds, b); 
+    }
+  }
+  return 0;
+}
+
+
+struct Varstack {
+  char** names;
+
+  size_t counter;
+};
+
+struct VarstackMap {
+  char* key;
+  struct Varstack* value;
+};
+
+char* ssavarstacknewver(struct Varstack* stack, const char* var) {
+  const size_t maxdigits = 32;
+  size_t n = strlen(var) + 1 + maxdigits;
+  char* buf = _malloc(n);
+  assert(buf);
+
+  snprintf(buf, n, "%s%li", var, stack->counter++);
+
+  return buf;
+};
+
+#define arrtop(arr) (arr)[arrlen((arr)) > 0 ? arrlen((arr)) - 1 : arrlen(arr)]
+
+struct Varstack* getstack(struct VarstackMap** map, char* var) {
+  struct Varstack* stack = hmget(*map, var);
+  if(!stack) {
+    stack = _calloc(1, sizeof(*stack));
+    assert(stack);
+    hmput(*map, var, stack);
+  }
+  return stack;
+}
+
+int8_t ssarenameblock(struct SSA* ssa, struct BasicBlock* block, struct IRFunction* func, struct VarstackMap** map) {
+  assert(ssa && func);
+
+  if(!block) {
+    return 0;
+  }
+
+  char** definedhere = NULL;
+  for(size_t i = block->begin; i < block->end; i++) {
+    struct IRInstruction* inst = &func->insts[i]; 
+    if(inst->type == IR_PHI) {
+      inst->phi.original_name = strdup(inst->phi.result);
+
+      char* var = inst->phi.result;  
+
+      struct Varstack* stack = getstack(map, var);
+      char* newver = ssavarstacknewver(stack, var);
+
+      arrput(stack->names, newver);
+      arrput(definedhere, var);
+
+      inst->phi.result = newver;
+    }
+  }
+  for(size_t i = block->begin; i < block->end; i++) {
+    struct IRInstruction* inst = &func->insts[i]; 
+    if(inst->type == IR_LOAD) {
+      char* var = inst->name;
+      struct Varstack* stack = getstack(map, var);
+      inst->name = arrtop(stack->names);
+      printf("Got here for block %li: Name %s\n", block->id, var);
+    }
+    else if(inst->type == IR_ASSIGN || inst->type == IR_STORE) {
+      char* var = inst->name;
+
+      struct Varstack* stack = getstack(map, var);
+      char* newver = ssavarstacknewver(stack, var);
+
+      arrput(stack->names, newver);
+      arrput(definedhere, var);
+
+      inst->name = newver;
+    }
+  }
+
+  for(size_t i = 0; i < block->successors_n; i++) {
+    struct BasicBlock* s = block->successors[i];
+    for(size_t j = s->begin; j < s->end; j++) {
+    struct IRInstruction* inst = &func->insts[j]; 
+      if(inst->type == IR_PHI) {
+        struct Varstack* origstack = hmget(*map, inst->phi.original_name);
+        char* namefromblock = arrtop(origstack->names);
+
+        hmput(inst->phi.args, block, namefromblock);
+      }
+    }
+  }
+ 
+  for(size_t i = 0; i < arrlen(block->domchilds); i++) {
+    ssarenameblock(ssa, block->domchilds[i], func, map);
+  }
+
+  for(size_t i = 0; i < arrlen(definedhere); i++) {
+    arrpop(getstack(map, definedhere[i])->names);
+  } 
+  
+  arrfree(definedhere);
 
   return 0;
 }
@@ -489,9 +624,13 @@ int main(int argc, char** argv) {
 
     struct SSA ssa;
     ssainit(&ssa, blocks, blocks_n);
+    ssabuilddomtree(&ssa);
     ssagetdominancefrontiers(&ssa);
-
     ssainsertphinodes(&ssa, func);
+
+    struct VarstackMap* map = NULL;
+    ssarenameblock(&ssa, &blocks[0], func, &map);
+
     //ssaprintdominators(&ssa, func); 
     
     for(size_t i = 0; i < ssa.blocks_n; i++) {
