@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 
 static struct {
   const char *str;
@@ -281,6 +282,9 @@ int8_t irprintinst(struct IRInstruction* inst) {
     case IR_ASSIGN: 
       printf("Instruction: %s: %s to v%li\n", irtypetostr(inst->type), 
              inst->name, inst->op1); break;
+    case IR_PHI: 
+      printf("Instruction: %s: Result: %s\n", irtypetostr(inst->type), 
+             inst->phi.result); break;
   }
 
   return 0;
@@ -294,3 +298,24 @@ int8_t irprograminit(struct IRProgram* program) {
   return 0;
 }
 
+int8_t irinstinsertat(struct IRFunction* func, struct IRInstruction inst, size_t idx) {
+  if (idx > func->insts_n) {
+    fprintf(stderr, "ivar: index out of bounds.\n");
+    return 1;
+  }
+
+    if (func->insts_n >= func->insts_cap) {
+    func->insts_cap *= 2;
+    func->insts = _realloc(func->insts, func->insts_cap * sizeof(*func->insts));
+    assert(func->insts);
+    }
+
+    memmove(func->insts + idx + 1,
+            func->insts + idx,
+            (func->insts_n - idx) * sizeof(*func->insts));
+
+  func->insts[idx] = inst;  
+  func->insts_n++;
+
+  return 0;
+}

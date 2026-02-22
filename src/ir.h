@@ -20,6 +20,7 @@
   X(IR_JUMP, "IR_JUMP") \
   X(IR_ASSIGN, "IR_ASSIGN") \
   X(IR_LABEL, "IR_LABEL") \
+  X(IR_PHI, "IR_PHI") \
 
 enum IRType {
   #define X(name, str) name,
@@ -35,6 +36,14 @@ struct IRInstruction {
   IRValue op1, op2, dst; 
   IRValue imm;
   char* name;
+
+  struct {
+    char* result; 
+    char** args;
+    int args_n;
+
+    struct BasicBlock** phi_preds; 
+  } phi;
 
   IRValue label;
 };
@@ -60,3 +69,5 @@ int8_t irprintall(struct IRProgram* program);
 int8_t irprintinst(struct IRInstruction* inst); 
 
 int8_t irprograminit(struct IRProgram* program);
+
+int8_t irinstinsertat(struct IRFunction* func, struct IRInstruction inst, size_t idx);

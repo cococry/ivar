@@ -336,6 +336,18 @@ int8_t ssagetdominancefrontiers(struct SSA* ssa) {
   return 0;
 }
 
+int8_t ssagetdfs(struct SSA* ssa, struct BasicBlock* block, struct BasicBlock*** o_dfs, size_t* o_dfs_n) {
+  assert(ssa && block);
+  for(size_t i = 0; i < ssa->blocks_n; i++) {
+    if(ssa->blocks[i].id == block->id) {
+      *o_dfs = block->dfs;
+      *o_dfs_n = block->dfs_n;
+      return 0;
+    }
+  }
+  return 0;
+}
+
 int8_t ssainsertphinodes(struct SSA* ssa, struct IRFunction* func) {
   size_t defsites_n = 0;
  
@@ -356,11 +368,65 @@ int8_t ssainsertphinodes(struct SSA* ssa, struct IRFunction* func) {
   }
 
   for(size_t i = 0; i < hmlen(defsites); i++) {
-    printf("Defsites of var '%s':\n", defsites[i].key);
-    for(size_t j = 0; j < arrlen(defsites[i].value); j++) {
-      printf("Block %li\n", defsites[i].value[j].id);
+    struct BasicBlock** worklist = NULL;
+    for (size_t m = 0; m < arrlen(defsites[i].value); m++) {
+      arrput(worklist, &defsites[i].value[m]);
+    }
+    struct BasicBlock** phisinserted = NULL;
+    while(arrlen(worklist) > 0) {
+      struct BasicBlock* b = arrpop(worklist); 
+
+      for(size_t j = 0; j < b->dfs_n; j++) {
+        struct BasicBlock* df = b->dfs[j];
+        uint8_t has_alrady = 0;
+        for(size_t k = 0; k < arrlen(phisinserted); k++) {
+          if(phisinserted[k]->id == df->id) {
+            has_alrady = 1;
+            break;
+          }
+        }
+        if(!has_alrady) {
+          struct IRInstruction inst = {0};
+          inst.type = IR_PHI;
+
+          inst.phi.result = strdup(defsites[i].key);
+          assert(inst.phi.result);
+
+          inst.phi.args_n = df->predecessors_n;
+
+          inst.phi.args = _calloc(inst.phi.args_n, sizeof(*inst.phi.args)); 
+          assert(inst.phi.args);
+
+          inst.phi.phi_preds = df->predecessors; 
+
+          irinstinsertat(func, inst, df->begin);
+          for (size_t i = 0; i < ssa->blocks_n; i++) {
+            if (ssa->blocks[i].begin > df->begin)
+              ssa->blocks[i].begin++;
+
+            if (ssa->blocks[i].end > df->begin)
+              ssa->blocks[i].end++;
+          }
+          
+          arrput(phisinserted, df);
+    
+          struct BasicBlock* defsofv = defsites[i].value;
+
+          uint8_t has_def = 0;
+          for(size_t l = 0; l < arrlen(defsofv); l++) {
+            if(defsofv[l].id == df->id) {
+              has_def = 1;
+              break;
+            }
+          }
+          if(!has_def) {
+            arrput(worklist, df);
+          }
+        }
+      }
     }
   }
+
 
   return 0;
 }
@@ -425,9 +491,18 @@ int main(int argc, char** argv) {
     ssainit(&ssa, blocks, blocks_n);
     ssagetdominancefrontiers(&ssa);
 
-    ssaprintdominators(&ssa, func); 
-
     ssainsertphinodes(&ssa, func);
+    //ssaprintdominators(&ssa, func); 
+    
+    for(size_t i = 0; i < ssa.blocks_n; i++) {
+      printf("Block %li\n", i);
+      for(size_t j = ssa.blocks[i].begin; j < ssa.blocks[i].end; j++) {
+        printf("  ");
+        irprintinst(&func->insts[j]);
+      }
+    printf("----------------------------------\n"); 
+    }
+    //irprintall(&irprogram);
     
     printf("=========================\n"); 
   }
