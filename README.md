@@ -9,7 +9,10 @@ compiler for the ivar programming language
   - [x] Parser
   - [x] AST node gen
 - [x] Implement semantic analysis
-- [ ] Implement IR (TAC)
+- [x] Implement IR (TAC)
   - [x] IR Functions + Variables (Store + Load)
-  - [x] IR conditionals 
+  - [x] IR conditionals
+- [x] Implement SSA
+- [ ] SSA optimizations
+- [ ] Destruct SSA
 - [ ] Generate ASM
